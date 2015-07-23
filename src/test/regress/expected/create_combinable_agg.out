@@ -216,11 +216,16 @@ SELECT pg_sleep(0.2);
 (1 row)
 
 INSERT INTO cont_plpgsql_s (x) VALUES ('d'), ('e'), ('f');
-SELECT * FROM cont_plpgsql_cv;
-    set_agg    
----------------
- {a,b,c,d,e,f}
-(1 row)
+SELECT unnest(set_agg) FROM cont_plpgsql_cv ORDER BY unnest;
+ unnest 
+--------
+ a
+ b
+ c
+ d
+ e
+ f
+(6 rows)
 
 DROP TABLE cont_plpgsql_t;
 DROP CONTINUOUS VIEW cont_plpgsql_cv;

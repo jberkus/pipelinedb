@@ -176,7 +176,7 @@ INSERT INTO cont_plpgsql_s (x) VALUES ('a'), ('b'), ('c');
 SELECT pg_sleep(0.2);
 INSERT INTO cont_plpgsql_s (x) VALUES ('d'), ('e'), ('f');
 
-SELECT * FROM cont_plpgsql_cv;
+SELECT unnest(set_agg) FROM cont_plpgsql_cv ORDER BY unnest;
 
 DROP TABLE cont_plpgsql_t;
 DROP CONTINUOUS VIEW cont_plpgsql_cv;
