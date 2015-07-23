@@ -12,6 +12,7 @@
 
 #include "access/htup_details.h"
 #include "catalog/pg_aggregate.h"
+#include "catalog/pg_type.h"
 #include "catalog/pipeline_combine.h"
 #include "catalog/pipeline_query_fn.h"
 #include "commands/pipelinecmds.h"
@@ -22,6 +23,8 @@
 #include "optimizer/pathnode.h"
 #include "optimizer/tlist.h"
 #include "optimizer/var.h"
+#include "parser/parse_agg.h"
+#include "parser/parse_coerce.h"
 #include "parser/parse_oper.h"
 #include "pipeline/cont_plan.h"
 #include "pipeline/cqanalyze.h"
@@ -206,6 +209,16 @@ set_plan_refs(PlannedStmt *pstmt, ContinuousView *view)
 			transtype = get_trans_type(aggref);
 
 			/*
+			 * XXX(usmanm): Is this totally kosher?
+			 */
+			if (pstmt->is_combine && TypeCategory(transtype) == TYPCATEGORY_PSEUDOTYPE)
+			{
+				Oid	inputtypes[FUNC_MAX_ARGS];
+				int nargs = get_aggregate_argtypes(aggref, inputtypes);
+				transtype = resolve_aggregate_transtype(aggref->aggfnoid, transtype, inputtypes, nargs);
+			}
+
+			/*
 			 * If this Aggref has hidden state associated with it, we create an Aggref
 			 * that finalizes the transition state from the hidden column and stores
 			 * it into the visible column.
@@ -226,6 +239,7 @@ set_plan_refs(PlannedStmt *pstmt, ContinuousView *view)
 			 */
 			if (pstmt->is_combine)
 			{
+				elog(LOG, "make var %d", transtype);
 				Var *v = makeVar(OUTER_VAR, attno, transtype, InvalidOid, InvalidOid, 0);
 				TargetEntry *arte = makeTargetEntry((Expr *) v, 1, toappend->resname, false);
 

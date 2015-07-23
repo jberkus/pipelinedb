@@ -105,6 +105,7 @@
 #include "executor/executor.h"
 #include "executor/nodeAgg.h"
 #include "miscadmin.h"
+#include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
 #include "optimizer/clauses.h"
 #include "optimizer/tlist.h"
@@ -263,6 +264,8 @@ typedef struct AggStatePerAggData
 	FunctionCallInfoData transoutfn_fcinfo;
 	FunctionCallInfoData combineinfn_fcinfo;
 	FunctionCallInfoData combinefn_fcinfo;
+
+	Oid transtypeId;
 }	AggStatePerAggData;
 
 /*
@@ -459,6 +462,17 @@ advance_combine_function(TupleTableSlot *slot, AggState *aggstate,
 	if (OidIsValid(peraggstate->combinefn_oid))
 	{
 		FunctionCallInfo fcinfo = &peraggstate->combinefn_fcinfo;
+		FuncExpr *expr = makeNode(FuncExpr);
+		Const *c = makeConst(peraggstate->transtypeId,
+				  -1,
+				  InvalidOid,
+				  peraggstate->transtypeLen,
+				  pergroupstate->transValue,
+				  false,
+				  peraggstate->transtypeByVal);
+
+		expr->args = list_make2(c, c);
+		expr->funcresulttype = peraggstate->transtypeId;
 
 		fcinfo->isnull = false;
 		fcinfo->arg[0] = pergroupstate->transValue;
@@ -466,6 +480,8 @@ advance_combine_function(TupleTableSlot *slot, AggState *aggstate,
 		fcinfo->arg[1] = combineinput;
 		fcinfo->argnull[1] = isnull;
 		fcinfo->nargs = 2;
+
+		fcinfo->flinfo->fn_expr = (fmNodePtr) expr;
 
 		combineoutput = FunctionCallInvoke(fcinfo);
 		isnull = fcinfo->isnull;
@@ -2062,12 +2078,23 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		else
 			peraggstate->numFinalArgs = numDirectArgs + 1;
 
-		/* resolve actual type of transition state, if polymorphic */
-		aggtranstype = resolve_aggregate_transtype(aggref->aggfnoid,
-												   aggform->aggtranstype,
-												   inputTypes,
-												   numArguments);
-
+//		if (aggref->aggresultstate == AGG_COMBINE && TypeCategory(transtype) == TYPCATEGORY_PSEUDOTYPE)
+//		{
+//			Assert(numArguments == 1);
+//			aggtranstype = inputTypes[0];
+//		}
+//		else
+		if (aggref->aggresultstate == AGG_COMBINE)
+			elog(LOG, "befopre %d %d", inputTypes[0], aggform->aggtranstype);
+		{
+			/* resolve actual type of transition state, if polymorphic */
+			aggtranstype = resolve_aggregate_transtype(aggref->aggfnoid,
+													   aggform->aggtranstype,
+													   inputTypes,
+													   numArguments);
+		}
+		if (aggref->aggresultstate == AGG_COMBINE)
+			elog(LOG, "%d %d %d", aggtranstype, inputTypes[0], aggform->aggtranstype);
 		/* build expression trees using actual argument & result types */
 		build_aggregate_fnexprs(inputTypes,
 								numArguments,
@@ -2109,6 +2136,8 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		get_typlenbyval(aggtranstype,
 						&peraggstate->transtypeLen,
 						&peraggstate->transtypeByVal);
+
+		peraggstate->transtypeId = aggtranstype;
 
 		/*
 		 * initval is potentially null, so don't try to access it as a struct
