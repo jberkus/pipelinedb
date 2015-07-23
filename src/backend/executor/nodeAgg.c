@@ -101,6 +101,7 @@
 #include "catalog/objectaccess.h"
 #include "catalog/pg_aggregate.h"
 #include "catalog/pg_proc.h"
+#include "catalog/pg_type.h"
 #include "catalog/pipeline_combine.h"
 #include "executor/executor.h"
 #include "executor/nodeAgg.h"
@@ -2078,14 +2079,15 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 		else
 			peraggstate->numFinalArgs = numDirectArgs + 1;
 
-//		if (aggref->aggresultstate == AGG_COMBINE && TypeCategory(transtype) == TYPCATEGORY_PSEUDOTYPE)
-//		{
-//			Assert(numArguments == 1);
-//			aggtranstype = inputTypes[0];
-//		}
-//		else
-		if (aggref->aggresultstate == AGG_COMBINE)
-			elog(LOG, "befopre %d %d", inputTypes[0], aggform->aggtranstype);
+		/*
+		 * XXX(usmanm): Is this totally kosher?
+		 */
+		if (aggref->aggresultstate == AGG_COMBINE && IsPolymorphicType(aggform->aggtranstype))
+		{
+			Assert(numArguments == 1);
+			aggtranstype = inputTypes[0];
+		}
+		else
 		{
 			/* resolve actual type of transition state, if polymorphic */
 			aggtranstype = resolve_aggregate_transtype(aggref->aggfnoid,
@@ -2093,8 +2095,7 @@ ExecInitAgg(Agg *node, EState *estate, int eflags)
 													   inputTypes,
 													   numArguments);
 		}
-		if (aggref->aggresultstate == AGG_COMBINE)
-			elog(LOG, "%d %d %d", aggtranstype, inputTypes[0], aggform->aggtranstype);
+
 		/* build expression trees using actual argument & result types */
 		build_aggregate_fnexprs(inputTypes,
 								numArguments,

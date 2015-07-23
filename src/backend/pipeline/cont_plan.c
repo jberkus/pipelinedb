@@ -211,7 +211,7 @@ set_plan_refs(PlannedStmt *pstmt, ContinuousView *view)
 			/*
 			 * XXX(usmanm): Is this totally kosher?
 			 */
-			if (pstmt->is_combine && TypeCategory(transtype) == TYPCATEGORY_PSEUDOTYPE)
+			if (pstmt->is_combine && IsPolymorphicType(transtype))
 			{
 				Oid	inputtypes[FUNC_MAX_ARGS];
 				int nargs = get_aggregate_argtypes(aggref, inputtypes);
@@ -239,7 +239,6 @@ set_plan_refs(PlannedStmt *pstmt, ContinuousView *view)
 			 */
 			if (pstmt->is_combine)
 			{
-				elog(LOG, "make var %d", transtype);
 				Var *v = makeVar(OUTER_VAR, attno, transtype, InvalidOid, InvalidOid, 0);
 				TargetEntry *arte = makeTargetEntry((Expr *) v, 1, toappend->resname, false);
 
