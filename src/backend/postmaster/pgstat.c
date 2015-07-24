@@ -5460,11 +5460,6 @@ cq_stat_report(bool force)
 	if (!force && MyCQStats && !TimestampDifferenceExceeds(MyCQStats->last_report, GetCurrentTimestamp(), PGSTAT_STAT_INTERVAL))
 		return;
 
-	/*
-	 * We also want to send stats about the matrel
-	 */
-	pgstat_report_stat(force);
-
 	cq_stat_report_entry(&MyProcCQStats);
 	if (MyCQStats)
 		cq_stat_report_entry(MyCQStats);
