@@ -209,7 +209,8 @@ set_plan_refs(PlannedStmt *pstmt, ContinuousView *view)
 			transtype = get_trans_type(aggref);
 
 			/*
-			 * XXX(usmanm): Is this totally kosher?
+			 * If the transition state is polymorphic, resolve it eagerly for combine plans. Because once we override
+			 * the args to the agg function, resolution might break.
 			 */
 			if (pstmt->is_combine && IsPolymorphicType(transtype))
 			{
