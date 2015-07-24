@@ -2397,7 +2397,7 @@ static struct config_int ConfigureNamesInt[] =
 			GUC_UNIT_S
 		},
 		&autovacuum_naptime,
-		60, 1, INT_MAX / 1000,
+		15, 1, INT_MAX / 1000,
 		NULL, NULL, NULL
 	},
 	{
