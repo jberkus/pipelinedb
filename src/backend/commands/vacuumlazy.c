@@ -44,6 +44,7 @@
 #include "access/htup_details.h"
 #include "access/multixact.h"
 #include "access/transam.h"
+#include "access/tuptoaster.h"
 #include "access/visibilitymap.h"
 #include "catalog/catalog.h"
 #include "catalog/storage.h"
@@ -893,6 +894,15 @@ lazy_scan_heap(Relation onerel, LVRelStats *vacrelstats,
 			{
 				tupgone = true;
 				all_visible = false;
+
+				/*
+				 * This expired SW tuple is about to be deleted, but we need to explicitly
+				 * delete any of its TOAST rows since we're not performing the deletion
+				 * via heap_delete. If we did use heap_delete, we'd just waste cycles in a
+				 * in a later autovac run by reexamining a tuple that we already know is gone.
+				 */
+				if (HeapTupleHasExternal(&tuple))
+					toast_delete(onerel, &tuple);
 			}
 
 			if (tupgone)

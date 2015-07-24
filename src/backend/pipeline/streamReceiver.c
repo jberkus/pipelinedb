@@ -9,9 +9,14 @@
  * IDENTIFICATION
  *	  src/backend/pipeline/streamReceiver.c
  */
+#include "postgres.h"
+
+#include "access/xact.h"
 #include "pipeline/stream.h"
 #include "pipeline/streamReceiver.h"
 #include "pipeline/tuplebuf.h"
+
+#define STREAM_INSERT_COMMIT_INTERVAL 1 * 1000 /* 1s */
 
 static void
 stream_shutdown(DestReceiver *self)
@@ -39,6 +44,21 @@ stream_receive(TupleTableSlot *slot, DestReceiver *self)
 		stream->bytes += tuple->heaptup->t_len + HEAPTUPLESIZE;
 	}
 
+	/*
+	 * Writing to streams from a long-running process is presumably a common case,
+	 * so we periodically commit to avoid a long-running transaction. Long-running xacts
+	 * blocks the autovac from freeing up space, because tuples that have long since been
+	 * deleted would technically still be visible from the point of view of a long-running
+	 * xact.
+	 */
+	if (TimestampDifferenceExceeds(GetCurrentTimestamp(), stream->lastcommit, STREAM_INSERT_COMMIT_INTERVAL))
+	{
+		 CommitTransactionCommand();
+		 stream->lastcommit = GetCurrentTimestamp();
+
+		 StartTransactionCommand();
+	}
+
 	MemoryContextSwitchTo(old);
 }
 
@@ -60,6 +80,7 @@ CreateStreamDestReceiver(void)
 	self->pub.rDestroy = stream_destroy;
 	self->pub.mydest = DestCombiner;
 	self->count = 0;
+	self->lastcommit = GetCurrentTimestamp();
 
 	return (DestReceiver *) self;
 }
