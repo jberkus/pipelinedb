@@ -16,7 +16,7 @@
 #include "pipeline/streamReceiver.h"
 #include "pipeline/tuplebuf.h"
 
-#define STREAM_INSERT_COMMIT_INTERVAL 1 * 1000 /* 1s */
+int stream_insertion_commit_interval;
 
 static void
 stream_shutdown(DestReceiver *self)
@@ -51,7 +51,8 @@ stream_receive(TupleTableSlot *slot, DestReceiver *self)
 	 * deleted would technically still be visible from the point of view of a long-running
 	 * xact.
 	 */
-	if (TimestampDifferenceExceeds(GetCurrentTimestamp(), stream->lastcommit, STREAM_INSERT_COMMIT_INTERVAL))
+	if (stream_insertion_commit_interval > 0 &&
+			TimestampDifferenceExceeds(GetCurrentTimestamp(), stream->lastcommit, stream_insertion_commit_interval))
 	{
 		 CommitTransactionCommand();
 		 stream->lastcommit = GetCurrentTimestamp();

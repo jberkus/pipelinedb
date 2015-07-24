@@ -18,6 +18,9 @@
 
 #include "tcop/dest.h"
 
+/* guc param */
+extern int stream_insertion_commit_interval;
+
 typedef struct StreamReceiver
 {
 	DestReceiver pub;
