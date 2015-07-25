@@ -16,8 +16,6 @@
 #include "pipeline/streamReceiver.h"
 #include "pipeline/tuplebuf.h"
 
-int stream_insertion_commit_interval;
-
 static void
 stream_shutdown(DestReceiver *self)
 {
@@ -52,7 +50,7 @@ stream_receive(TupleTableSlot *slot, DestReceiver *self)
 	 * xact.
 	 */
 	if (stream_insertion_commit_interval > 0 &&
-			TimestampDifferenceExceeds(GetCurrentTimestamp(), stream->lastcommit, stream_insertion_commit_interval))
+			TimestampDifferenceExceeds(stream->lastcommit, GetCurrentTimestamp(), stream_insertion_commit_interval * 1000))
 	{
 		 CommitTransactionCommand();
 		 stream->lastcommit = GetCurrentTimestamp();

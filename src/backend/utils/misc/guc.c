@@ -53,7 +53,7 @@
 #include "parser/parser.h"
 #include "parser/scansup.h"
 #include "pgstat.h"
-#include "pipeline/streamReceiver.h"
+#include "pipeline/stream.h"
 #include "pipeline/update.h"
 #include "postmaster/autovacuum.h"
 #include "postmaster/bgworker.h"

@@ -234,6 +234,13 @@ ShouldVacuumSWTuple(SWVacuumContext *context, HeapTupleData *tuple)
 	if (!context)
 		return false;
 
+	/*
+	 * The combiner could have updated this tuple before actually committing/aborting,
+	 * so we ignore it in that case.
+	 */
+	if (tuple->t_data->t_infomask & (HEAP_XMAX_COMMITTED | HEAP_XMAX_INVALID))
+		return false;
+
 	ExecStoreTuple(tuple, context->slot, InvalidBuffer, false);
 	vacuum = ExecQual(context->predicate, context->econtext, false);
 	ExecClearTuple(context->slot);
